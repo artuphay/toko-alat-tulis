@@ -5,7 +5,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Product, Order } from '../../types';
 import Link from 'next/link';
 import { ShoppingBag, Plus, Trash2, Edit3, Truck, ArrowLeft, Upload, Link as LinkIcon, Image as ImageIcon } from 'lucide-react';
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'orders' | 'products'>('products');
   

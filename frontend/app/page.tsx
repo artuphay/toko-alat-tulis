@@ -1,10 +1,11 @@
 'use client';
 
+
 import React, { useEffect, useState } from 'react';
 import { Product } from '../types';
 import { ShoppingCart, Package, Heart, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 export default function Storefront() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<{ [key: number]: number }>({});
@@ -22,7 +23,7 @@ export default function Storefront() {
   });
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/products')
+    fetch(`${API_BASE_URL}/api/products`)
       .then((res) => res.json())
       .then((data) => setProducts(data))
       .catch((err) => console.error('Gagal load produk', err));
@@ -48,7 +49,7 @@ export default function Storefront() {
       })),
     };
 
-    const res = await fetch('http://localhost:8080/api/checkout', {
+    const res = await fetch(`${API_BASE_URL}/api/checkout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -60,7 +61,7 @@ export default function Storefront() {
 
   const handleSimulatePayment = async () => {
     if (!createdOrder) return;
-    await fetch(`http://localhost:8080/api/payment/simulate-pay/${createdOrder.orderCode}`, {
+    await fetch(`${API_BASE_URL}/api/payment/simulate-pay/${createdOrder.orderCode}`, {
       method: 'POST',
     });
     setSimulatedPaid(true);
