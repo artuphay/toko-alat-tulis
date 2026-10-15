@@ -2,6 +2,7 @@ package com.tokosekolah.controller;
 
 import com.tokosekolah.dto.CheckoutRequest;
 import com.tokosekolah.entity.*;
+import com.tokosekolah.payment.QrisService;
 import com.tokosekolah.repository.OrderRepository;
 import com.tokosekolah.repository.ProductImageRepository;
 import com.tokosekolah.repository.ProductRepository;
@@ -36,6 +37,7 @@ public class StoreController {
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
     private final ProductImageRepository productImageRepository;
+    private final QrisService qrisService;
 
     @GetMapping("/products")
     public List<Product> getProducts() {
@@ -94,6 +96,7 @@ public class StoreController {
 
         order.setTotalAmount(total);
         order.setStatus(OrderStatus.PENDING_PAYMENT);
+        order.setQrisPayload(qrisService.dynamicPayload(total));
 
         return orderRepository.save(order);
     }

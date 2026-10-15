@@ -8,6 +8,7 @@ import Link from 'next/link';
 import KimaLogo from '../components/KimaLogo';
 import { categoryStyle } from '../lib/kima';
 import { apiFetch, ApiError, FALLBACK_IMAGE, formatRupiah } from '../lib/api';
+import { qrisCard, qrisImage, QRIS_MERCHANT_NAME, QRIS_NMID } from '../lib/qris';
 
 type Cart = Record<number, number>;
 type Step = 'cart' | 'form' | 'payment' | 'paid';
@@ -47,6 +48,7 @@ export default function Storefront() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   const loadProducts = useCallback(async () => {
     // Server gratis bisa "tidur"; beri tahu pembeli jika butuh waktu lama
@@ -122,6 +124,8 @@ export default function Storefront() {
           items: cartItems.map((it) => ({ productId: it.product.id, quantity: it.qty })),
         }),
       });
+      // QR dinamis berisi nominal; jika gagal dibuat, halaman bayar memakai QRIS statis
+      setQrDataUrl(order.qrisPayload ? await qrisImage(order.qrisPayload).catch(() => null) : null);
       setCreatedOrder(order);
       setCart({});
       setStep('payment');
@@ -159,9 +163,22 @@ export default function Storefront() {
     }
   };
 
+  const downloadQris = async () => {
+    if (!createdOrder || !qrDataUrl) return;
+    try {
+      const link = document.createElement('a');
+      link.href = await qrisCard(qrDataUrl, createdOrder.totalAmount, createdOrder.orderCode);
+      link.download = `QRIS-Kima-${createdOrder.orderCode}.png`;
+      link.click();
+    } catch {
+      setError('Gagal menyimpan gambar. Coba screenshot layar ini.');
+    }
+  };
+
   const finishOrder = () => {
     setIsModalOpen(false);
     setCreatedOrder(null);
+    setQrDataUrl(null);
     setForm(EMPTY_FORM);
     setStep('cart');
   };
@@ -523,16 +540,32 @@ export default function Storefront() {
                 </div>
 
                 <div className="bg-white border-2 border-kima-lavender/50 rounded-2xl p-3">
-                  <p className="text-xs font-bold text-kima-ink">KIMA FASHION AND ACCESSORIES</p>
-                  <p className="text-[10px] text-slate-400 font-mono">NMID: ID1026515373078</p>
-                  <img src="/qris-kima.png" alt="QRIS Kima Fashion and Accessories" className="w-60 h-60 mx-auto mt-2" />
-                  <a
-                    href="/qris-kima-poster.png"
-                    download="QRIS-Kima.png"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-kima-blue-deep mt-1 hover:underline"
-                  >
-                    <Download size={14} /> Simpan Gambar QRIS
-                  </a>
+                  <p className="text-xs font-bold text-kima-ink">{QRIS_MERCHANT_NAME}</p>
+                  <p className="text-[10px] text-slate-400 font-mono">NMID: {QRIS_NMID}</p>
+                  <img
+                    src={qrDataUrl ?? '/qris-kima.png'}
+                    alt="QRIS Kima Fashion and Accessories"
+                    className="w-60 h-60 mx-auto mt-2"
+                  />
+                  {qrDataUrl && (
+                    <p className="text-[11px] font-bold text-kima-mint-deep">✓ Nominal sudah otomatis terisi saat di-scan</p>
+                  )}
+                  {qrDataUrl ? (
+                    <button
+                      onClick={downloadQris}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-kima-blue-deep mt-1 hover:underline"
+                    >
+                      <Download size={14} /> Simpan Gambar QRIS
+                    </button>
+                  ) : (
+                    <a
+                      href="/qris-kima-poster.png"
+                      download="QRIS-Kima.png"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-kima-blue-deep mt-1 hover:underline"
+                    >
+                      <Download size={14} /> Simpan Gambar QRIS
+                    </a>
+                  )}
                 </div>
 
                 <ol className="text-left text-xs text-slate-600 space-y-1.5 bg-kima-cream rounded-2xl p-3 list-decimal list-inside">
@@ -542,7 +575,15 @@ export default function Storefront() {
                     menu scan.
                   </li>
                   <li>
-                    Masukkan nominal <b>persis {formatRupiah(createdOrder.totalAmount)}</b>, lalu bayar.
+                    {qrDataUrl ? (
+                      <>
+                        Pastikan nominal yang muncul <b>{formatRupiah(createdOrder.totalAmount)}</b>, lalu bayar.
+                      </>
+                    ) : (
+                      <>
+                        Masukkan nominal <b>persis {formatRupiah(createdOrder.totalAmount)}</b>, lalu bayar.
+                      </>
+                    )}
                   </li>
                   <li>
                     Tekan tombol <b>Saya Sudah Bayar</b> di bawah.

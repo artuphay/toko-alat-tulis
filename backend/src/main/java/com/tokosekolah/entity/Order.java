@@ -38,6 +38,11 @@ public class Order {
     private OrderStatus status = OrderStatus.PENDING_PAYMENT;
 
     private String trackingNumber;
+
+    // Isi QRIS dinamis (dengan nominal pesanan) yang digambar menjadi QR di halaman bayar
+    @Column(length = 512)
+    private String qrisPayload;
+
     // Diisi saat pembeli menekan "Saya Sudah Bayar"; admin tetap harus mengecek dana masuk
     private LocalDateTime paymentClaimedAt;
     private LocalDateTime paidAt;

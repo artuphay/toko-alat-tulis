@@ -30,6 +30,7 @@ export interface Order {
   totalAmount: number;
   status: OrderStatus;
   trackingNumber?: string;
+  qrisPayload?: string | null;
   paymentClaimedAt?: string;
   paidAt?: string;
   createdAt?: string;
