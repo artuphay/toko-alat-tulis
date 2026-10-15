@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Product, Order, OrderSummary } from '../../types';
+import { Product, Order, OrderStatus, OrderSummary } from '../../types';
 import Link from 'next/link';
 import KimaLogo from '../../components/KimaLogo';
 import AdminLogin from '../../components/AdminLogin';
@@ -11,6 +11,20 @@ import { apiFetch, ApiError, FALLBACK_IMAGE, formatRupiah } from '../../lib/api'
 import { ShoppingBag, Plus, Trash2, Edit3, Truck, ArrowLeft, Upload, Link as LinkIcon, LogOut, PackageCheck } from 'lucide-react';
 
 const TOKEN_KEY = 'kima-admin-token';
+
+type OrderView = 'pending' | 'ready' | 'shipped';
+const ORDER_VIEWS: { key: OrderView; label: string; empty: string }[] = [
+  { key: 'pending', label: 'Menunggu Bayar', empty: 'Tidak ada pesanan yang menunggu pembayaran.' },
+  { key: 'ready', label: 'Siap Dikirim', empty: 'Tidak ada pesanan yang menunggu pengiriman saat ini.' },
+  { key: 'shipped', label: 'Sudah Dikirim', empty: 'Belum ada pesanan yang dikirim.' },
+];
+const STATUS_BADGE: Record<OrderStatus, { label: string; className: string }> = {
+  PENDING_PAYMENT: { label: 'MENUNGGU BAYAR', className: 'bg-kima-yellow/40 text-kima-yellow-deep' },
+  PAID_READY_TO_SHIP: { label: 'LUNAS (QRIS)', className: 'bg-kima-mint/30 text-kima-mint-deep' },
+  SHIPPED: { label: 'DIKIRIM', className: 'bg-kima-blue/25 text-kima-blue-deep' },
+  COMPLETED: { label: 'SELESAI', className: 'bg-kima-lavender/30 text-kima-lavender-deep' },
+  CANCELLED: { label: 'DIBATALKAN', className: 'bg-rose-100 text-rose-700' },
+};
 const EMPTY_FORM = {
   name: '',
   category: KIMA_CATEGORIES[0],
@@ -45,10 +59,11 @@ export default function AdminPage() {
   const [loginNotice, setLoginNotice] = useState('');
 
   const [activeTab, setActiveTab] = useState<'orders' | 'products'>('products');
-  const [orderView, setOrderView] = useState<'ready' | 'shipped'>('ready');
+  const [orderView, setOrderView] = useState<OrderView>('pending');
 
   // Data State
   const [products, setProducts] = useState<Product[]>([]);
+  const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
   const [readyOrders, setReadyOrders] = useState<Order[]>([]);
   const [shippedOrders, setShippedOrders] = useState<Order[]>([]);
   const [summary, setSummary] = useState<OrderSummary>({
@@ -130,13 +145,15 @@ export default function AdminPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [prod, ready, shipped, sum] = await Promise.all([
+      const [prod, pending, ready, shipped, sum] = await Promise.all([
         apiFetch<Product[]>('/api/products'),
+        adminApi<Order[]>('/api/admin/orders/pending'),
         adminApi<Order[]>('/api/admin/orders/ready-to-ship'),
         adminApi<Order[]>('/api/admin/orders/shipped'),
         adminApi<OrderSummary>('/api/admin/orders/summary'),
       ]);
       setProducts(prod);
+      setPendingOrders(pending);
       setReadyOrders(ready);
       setShippedOrders(shipped);
       setSummary(sum);
@@ -266,6 +283,28 @@ export default function AdminPage() {
     }
   };
 
+  const handleMarkPaid = async (o: Order) => {
+    if (!confirm(`Sudah cek dana ${formatRupiah(o.totalAmount)} dari ${o.recipientName} masuk ke QRIS Kima?`)) return;
+    try {
+      await adminApi(`/api/admin/orders/${o.id}/mark-paid`, { method: 'PUT' });
+      showToast('ok', 'Pesanan ditandai lunas, siap dikemas 🎀');
+      fetchData();
+    } catch (err) {
+      showToast('error', err instanceof ApiError ? err.message : 'Gagal memperbarui pesanan');
+    }
+  };
+
+  const handleCancel = async (o: Order) => {
+    if (!confirm(`Batalkan pesanan ${o.orderCode} atas nama ${o.recipientName}? Stok barang akan dikembalikan.`)) return;
+    try {
+      await adminApi(`/api/admin/orders/${o.id}/cancel`, { method: 'PUT' });
+      showToast('ok', 'Pesanan dibatalkan, stok dikembalikan');
+      fetchData();
+    } catch (err) {
+      showToast('error', err instanceof ApiError ? err.message : 'Gagal membatalkan pesanan');
+    }
+  };
+
   if (authState === 'checking') {
     return <div className="min-h-screen bg-kima-cream flex items-center justify-center text-sm text-slate-500">Memuat...</div>;
   }
@@ -273,6 +312,13 @@ export default function AdminPage() {
   if (authState === 'loggedOut') {
     return <AdminLogin notice={loginNotice} onLogin={handleLogin} />;
   }
+
+  const ordersByView: Record<OrderView, Order[]> = {
+    pending: pendingOrders,
+    ready: readyOrders,
+    shipped: shippedOrders,
+  };
+  const visibleOrders = ordersByView[orderView];
 
   const tabClass = (active: boolean) =>
     `flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition ${
@@ -342,7 +388,7 @@ export default function AdminPage() {
             <ShoppingBag size={16} /> Kelola Produk & Stok ({products.length})
           </button>
           <button onClick={() => setActiveTab('orders')} className={tabClass(activeTab === 'orders')}>
-            <Truck size={16} /> Pesanan ({readyOrders.length} siap kirim)
+            <Truck size={16} /> Pesanan ({pendingOrders.length} menunggu bayar · {readyOrders.length} siap kirim)
           </button>
         </div>
 
@@ -438,37 +484,39 @@ export default function AdminPage() {
         {/* TAB 2: PESANAN */}
         {activeTab === 'orders' && (
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-            <div className="p-3 bg-slate-100/80 border-b border-slate-200 flex gap-2">
-              <button
-                onClick={() => setOrderView('ready')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold ${orderView === 'ready' ? 'bg-white shadow text-kima-pink-deep' : 'text-slate-500'}`}
-              >
-                Siap Dikirim ({readyOrders.length})
-              </button>
-              <button
-                onClick={() => setOrderView('shipped')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold ${orderView === 'shipped' ? 'bg-white shadow text-kima-pink-deep' : 'text-slate-500'}`}
-              >
-                Sudah Dikirim ({shippedOrders.length})
-              </button>
+            <div className="p-3 bg-slate-100/80 border-b border-slate-200 flex flex-wrap gap-2">
+              {ORDER_VIEWS.map((v) => (
+                <button
+                  key={v.key}
+                  onClick={() => setOrderView(v.key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold ${orderView === v.key ? 'bg-white shadow text-kima-pink-deep' : 'text-slate-500'}`}
+                >
+                  {v.label} ({ordersByView[v.key].length})
+                </button>
+              ))}
             </div>
 
-            {(orderView === 'ready' ? readyOrders : shippedOrders).length === 0 ? (
+            {visibleOrders.length === 0 ? (
               <div className="p-10 text-center text-slate-400 text-sm">
-                {orderView === 'ready' ? 'Tidak ada pesanan yang menunggu pengiriman saat ini.' : 'Belum ada pesanan yang dikirim.'}
+                {ORDER_VIEWS.find((v) => v.key === orderView)?.empty}
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {(orderView === 'ready' ? readyOrders : shippedOrders).map((o) => (
+                {visibleOrders.map((o) => (
                   <div key={o.id} className="p-6 flex flex-col md:flex-row gap-6">
                     <div className="md:w-1/3 space-y-1">
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          o.status === 'SHIPPED' ? 'bg-kima-blue/25 text-kima-blue-deep' : 'bg-kima-mint/30 text-kima-mint-deep'
-                        }`}
-                      >
-                        {o.status === 'SHIPPED' ? 'DIKIRIM' : 'LUNAS (QRIS)'}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_BADGE[o.status].className}`}>
+                        {STATUS_BADGE[o.status].label}
                       </span>
+                      {o.status === 'PENDING_PAYMENT' && (
+                        <span
+                          className={`ml-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            o.paymentClaimedAt ? 'bg-kima-mint/30 text-kima-mint-deep' : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {o.paymentClaimedAt ? '✓ Pembeli sudah konfirmasi bayar' : 'Belum konfirmasi bayar'}
+                        </span>
+                      )}
                       <p className="text-[11px] font-mono text-slate-400">{o.orderCode}</p>
                       <h3 className="font-bold text-slate-800 text-base">{o.recipientName}</h3>
                       <p className="text-xs text-slate-500 font-mono">📱 {o.phoneNumber}</p>
@@ -494,7 +542,28 @@ export default function AdminPage() {
                     </div>
 
                     <div className="md:w-1/3 bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
-                      {o.status === 'SHIPPED' ? (
+                      {o.status === 'PENDING_PAYMENT' ? (
+                        <div className="space-y-2">
+                          <p className="text-[11px] text-slate-600">
+                            Cek di aplikasi bank/e-wallet QRIS Kima: ada dana masuk <b>{formatRupiah(o.totalAmount)}</b>?
+                          </p>
+                          {o.createdAt && (
+                            <p className="text-[10px] text-slate-400">Dipesan {new Date(o.createdAt).toLocaleString('id-ID')}</p>
+                          )}
+                          <button
+                            onClick={() => handleMarkPaid(o)}
+                            className="w-full py-2 bg-kima-mint-deep hover:brightness-95 text-white rounded-lg text-xs font-bold transition shadow"
+                          >
+                            Tandai Lunas ✓
+                          </button>
+                          <button
+                            onClick={() => handleCancel(o)}
+                            className="w-full py-2 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-bold transition"
+                          >
+                            Batalkan Pesanan
+                          </button>
+                        </div>
+                      ) : o.status === 'SHIPPED' ? (
                         <div className="space-y-1">
                           <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
                             <PackageCheck size={14} /> Nomor Resi
@@ -518,6 +587,12 @@ export default function AdminPage() {
                             className="mt-3 w-full py-2 bg-kima-blue-deep hover:brightness-95 text-white rounded-lg text-xs font-bold transition shadow"
                           >
                             Konfirmasi Kirim 🚚
+                          </button>
+                          <button
+                            onClick={() => handleCancel(o)}
+                            className="mt-2 w-full text-[11px] text-rose-500 hover:underline"
+                          >
+                            Batalkan pesanan
                           </button>
                         </>
                       )}

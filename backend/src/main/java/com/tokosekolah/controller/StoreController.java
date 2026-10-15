@@ -16,10 +16,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +29,9 @@ import java.util.Map;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 public class StoreController {
+
+    private static final String ORDER_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
@@ -52,7 +56,7 @@ public class StoreController {
     @Transactional
     public Order checkout(@Valid @RequestBody CheckoutRequest request) {
         Order order = new Order();
-        order.setOrderCode("KIMA-" + System.currentTimeMillis());
+        order.setOrderCode(newOrderCode());
         order.setRecipientName(request.getRecipientName().trim());
         order.setPhoneNumber(request.getPhoneNumber().trim());
         order.setShippingAddress(request.getShippingAddress().trim());
@@ -91,23 +95,30 @@ public class StoreController {
         order.setTotalAmount(total);
         order.setStatus(OrderStatus.PENDING_PAYMENT);
 
-        String qrData = "PAY-QRIS-" + order.getOrderCode() + "-RP-" + total.toPlainString();
-        order.setQrisUrl("https://api.qrserver.com/v1/create-qr-code/?size=300x300&data="
-                + URLEncoder.encode(qrData, StandardCharsets.UTF_8));
-
         return orderRepository.save(order);
     }
 
-    // Simulasi pembayaran QRIS (mode demo, belum terhubung payment gateway).
-    @PostMapping("/payment/simulate-pay/{orderCode}")
+    // Pembeli menandai sudah membayar lewat QRIS statis Kima. Status tetap menunggu sampai
+    // admin mencocokkan dana masuk dan menekan "Tandai Lunas".
+    @PostMapping("/orders/{orderCode}/payment-claim")
     @Transactional
-    public Map<String, String> simulatePayment(@PathVariable String orderCode) {
+    public Map<String, String> claimPayment(@PathVariable String orderCode) {
         Order order = orderRepository.findByOrderCode(orderCode)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pesanan tidak ditemukan"));
-        if (order.getStatus() == OrderStatus.PENDING_PAYMENT) {
-            order.setStatus(OrderStatus.PAID_READY_TO_SHIP);
-            order.setPaidAt(LocalDateTime.now());
+        if (order.getStatus() == OrderStatus.PENDING_PAYMENT && order.getPaymentClaimedAt() == null) {
+            order.setPaymentClaimedAt(LocalDateTime.now());
         }
         return Map.of("status", order.getStatus().name());
+    }
+
+    // Kode acak agar pesanan orang lain tidak bisa ditebak dari urutan waktu
+    private static String newOrderCode() {
+        StringBuilder code = new StringBuilder("KIMA-")
+                .append(LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd")))
+                .append('-');
+        for (int i = 0; i < 6; i++) {
+            code.append(ORDER_CODE_CHARS.charAt(RANDOM.nextInt(ORDER_CODE_CHARS.length())));
+        }
+        return code.toString();
     }
 }

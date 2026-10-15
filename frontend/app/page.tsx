@@ -3,7 +3,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Product, Order } from '../types';
-import { ShoppingCart, Package, CheckCircle2, Minus, Plus, Trash2, X, ArrowLeft, RefreshCw } from 'lucide-react';
+import { ShoppingCart, Package, CheckCircle2, Minus, Plus, Trash2, X, ArrowLeft, RefreshCw, Copy, Check, Download } from 'lucide-react';
 import Link from 'next/link';
 import KimaLogo from '../components/KimaLogo';
 import { categoryStyle } from '../lib/kima';
@@ -46,6 +46,7 @@ export default function Storefront() {
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const loadProducts = useCallback(async () => {
     // Server gratis bisa "tidur"; beri tahu pembeli jika butuh waktu lama
@@ -133,17 +134,28 @@ export default function Storefront() {
     }
   };
 
-  const handleSimulatePayment = async () => {
+  const handleClaimPayment = async () => {
     if (!createdOrder) return;
     setSubmitting(true);
     setError('');
     try {
-      await apiFetch(`/api/payment/simulate-pay/${createdOrder.orderCode}`, { method: 'POST' });
+      await apiFetch(`/api/orders/${createdOrder.orderCode}/payment-claim`, { method: 'POST' });
       setStep('paid');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Pembayaran gagal diproses.');
+      setError(err instanceof ApiError ? err.message : 'Gagal mengirim konfirmasi, coba lagi.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const copyAmount = async () => {
+    if (!createdOrder) return;
+    try {
+      await navigator.clipboard.writeText(String(Math.round(createdOrder.totalAmount)));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard tidak diizinkan; nominal tetap terlihat di layar
     }
   };
 
@@ -489,34 +501,73 @@ export default function Storefront() {
             )}
 
             {step === 'payment' && createdOrder && (
-              <div className="text-center py-2 space-y-4">
-                <h3 className="font-display text-xl font-bold text-kima-ink">Scan QRIS untuk Bayar</h3>
-                <p className="text-xs text-slate-500">
-                  Kode pesanan: <span className="font-mono font-bold">{createdOrder.orderCode}</span>
-                </p>
-                <p className="text-2xl font-black text-kima-pink-deep">{formatRupiah(createdOrder.totalAmount)}</p>
-                <div className="flex justify-center p-3 bg-white border-2 border-dashed border-kima-lavender rounded-2xl">
-                  <img src={createdOrder.qrisUrl} alt="QRIS" className="w-56 h-56" />
+              <div className="text-center py-1 space-y-4">
+                <div>
+                  <h3 className="font-display text-xl font-bold text-kima-ink">Bayar dengan QRIS</h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Kode pesanan: <span className="font-mono font-bold">{createdOrder.orderCode}</span>
+                  </p>
                 </div>
+
+                <div className="bg-kima-yellow/25 rounded-2xl p-3">
+                  <p className="text-[11px] font-bold text-slate-600 uppercase">Nominal yang harus dibayar</p>
+                  <div className="flex items-center justify-center gap-2 mt-1">
+                    <span className="text-2xl font-black text-kima-pink-deep">{formatRupiah(createdOrder.totalAmount)}</span>
+                    <button
+                      onClick={copyAmount}
+                      className="flex items-center gap-1 text-[11px] font-bold bg-white border border-slate-200 px-2 py-1 rounded-lg"
+                    >
+                      {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? 'Disalin' : 'Salin'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white border-2 border-kima-lavender/50 rounded-2xl p-3">
+                  <p className="text-xs font-bold text-kima-ink">KIMA FASHION AND ACCESSORIES</p>
+                  <p className="text-[10px] text-slate-400 font-mono">NMID: ID1026515373078</p>
+                  <img src="/qris-kima.png" alt="QRIS Kima Fashion and Accessories" className="w-60 h-60 mx-auto mt-2" />
+                  <a
+                    href="/qris-kima-poster.png"
+                    download="QRIS-Kima.png"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-kima-blue-deep mt-1 hover:underline"
+                  >
+                    <Download size={14} /> Simpan Gambar QRIS
+                  </a>
+                </div>
+
+                <ol className="text-left text-xs text-slate-600 space-y-1.5 bg-kima-cream rounded-2xl p-3 list-decimal list-inside">
+                  <li>Buka aplikasi m-banking atau e-wallet (GoPay, OVO, DANA, ShopeePay, dll).</li>
+                  <li>
+                    Scan QR di atas. Kalau belanja dari HP, tekan <b>Simpan Gambar QRIS</b> lalu pilih gambar dari galeri di
+                    menu scan.
+                  </li>
+                  <li>
+                    Masukkan nominal <b>persis {formatRupiah(createdOrder.totalAmount)}</b>, lalu bayar.
+                  </li>
+                  <li>
+                    Tekan tombol <b>Saya Sudah Bayar</b> di bawah.
+                  </li>
+                </ol>
+
                 {error && <p className="text-sm text-rose-600 bg-rose-50 p-3 rounded-xl">{error}</p>}
                 <button
-                  onClick={handleSimulatePayment}
+                  onClick={handleClaimPayment}
                   disabled={submitting}
                   className="w-full py-2.5 bg-kima-mint hover:brightness-95 disabled:opacity-50 text-kima-ink rounded-xl font-bold text-sm shadow-md"
                 >
-                  {submitting ? 'Memproses...' : '⚡ Simulasi Bayar Berhasil'}
+                  {submitting ? 'Mengirim...' : '✅ Saya Sudah Bayar'}
                 </button>
-                <p className="text-[11px] text-slate-400">Mode demo: pembayaran QRIS belum terhubung ke payment gateway.</p>
               </div>
             )}
 
             {step === 'paid' && createdOrder && (
               <div className="text-center py-6 space-y-3">
                 <CheckCircle2 size={48} className="text-kima-mint-deep mx-auto" />
-                <h3 className="font-display text-xl font-bold text-kima-ink">Pembayaran Berhasil! 🎉</h3>
+                <h3 className="font-display text-xl font-bold text-kima-ink">Terima kasih! 🎉</h3>
                 <p className="text-xs text-slate-500">
-                  Pesanan <span className="font-mono font-bold">{createdOrder.orderCode}</span> sudah masuk antrean pengiriman.
-                  Simpan kode ini, ya. Kami akan mengabari lewat WhatsApp saat paket dikirim.
+                  Pembayaran untuk pesanan <span className="font-mono font-bold">{createdOrder.orderCode}</span> sedang kami cek.
+                  Pesanan segera dikemas setelah pembayaran terkonfirmasi, dan kami akan mengabari lewat WhatsApp saat paket dikirim.
+                  Simpan kode pesanan ini, ya.
                 </p>
                 <button onClick={finishOrder} className="w-full py-2.5 bg-kima-pink-deep text-white rounded-xl font-bold text-sm mt-4">
                   Kembali Belanja

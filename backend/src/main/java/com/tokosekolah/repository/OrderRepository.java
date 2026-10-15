@@ -14,5 +14,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @EntityGraph(attributePaths = "items")
     List<Order> findByStatusOrderByPaidAtDesc(OrderStatus status);
 
+    @EntityGraph(attributePaths = "items")
+    List<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status);
+
     long countByStatus(OrderStatus status);
 }

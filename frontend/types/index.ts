@@ -29,8 +29,8 @@ export interface Order {
   notes?: string;
   totalAmount: number;
   status: OrderStatus;
-  qrisUrl?: string;
   trackingNumber?: string;
+  paymentClaimedAt?: string;
   paidAt?: string;
   createdAt?: string;
   items: OrderItem[];

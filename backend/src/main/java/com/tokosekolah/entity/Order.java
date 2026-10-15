@@ -37,8 +37,9 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private OrderStatus status = OrderStatus.PENDING_PAYMENT;
 
-    private String qrisUrl;
     private String trackingNumber;
+    // Diisi saat pembeli menekan "Saya Sudah Bayar"; admin tetap harus mengecek dana masuk
+    private LocalDateTime paymentClaimedAt;
     private LocalDateTime paidAt;
     private LocalDateTime createdAt = LocalDateTime.now();
 

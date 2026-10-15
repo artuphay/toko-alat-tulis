@@ -16,6 +16,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -96,6 +97,11 @@ public class AdminController {
     }
 
     // --- PESANAN ---
+    @GetMapping("/orders/pending")
+    public List<Order> getPendingOrders() {
+        return orderRepository.findByStatusOrderByCreatedAtDesc(OrderStatus.PENDING_PAYMENT);
+    }
+
     @GetMapping("/orders/ready-to-ship")
     public List<Order> getReadyToShipOrders() {
         return orderRepository.findByStatusOrderByPaidAtDesc(OrderStatus.PAID_READY_TO_SHIP);
@@ -119,8 +125,7 @@ public class AdminController {
     @PutMapping("/orders/{id}/ship")
     @Transactional
     public Map<String, String> shipOrder(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pesanan tidak ditemukan"));
+        Order order = findOrder(id);
         String trackingNumber = body.get("trackingNumber");
         if (trackingNumber == null || trackingNumber.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nomor resi wajib diisi");
@@ -131,6 +136,40 @@ public class AdminController {
         order.setStatus(OrderStatus.SHIPPED);
         order.setTrackingNumber(trackingNumber.trim());
         return Map.of("message", "Resi diperbarui!");
+    }
+
+    // Admin sudah melihat dana masuk di aplikasi bank/e-wallet
+    @PutMapping("/orders/{id}/mark-paid")
+    @Transactional
+    public Map<String, String> markPaid(@PathVariable Long id) {
+        Order order = findOrder(id);
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Pesanan ini tidak sedang menunggu pembayaran");
+        }
+        order.setStatus(OrderStatus.PAID_READY_TO_SHIP);
+        order.setPaidAt(LocalDateTime.now());
+        return Map.of("message", "Pesanan ditandai lunas");
+    }
+
+    // Batalkan pesanan yang belum dikirim dan kembalikan stoknya
+    @PutMapping("/orders/{id}/cancel")
+    @Transactional
+    public Map<String, String> cancelOrder(@PathVariable Long id) {
+        Order order = findOrder(id);
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT && order.getStatus() != OrderStatus.PAID_READY_TO_SHIP) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Pesanan yang sudah dikirim tidak bisa dibatalkan");
+        }
+        for (OrderItem item : order.getItems()) {
+            productRepository.findByIdForUpdate(item.getProductId())
+                    .ifPresent(p -> p.setStock(p.getStock() + item.getQuantity()));
+        }
+        order.setStatus(OrderStatus.CANCELLED);
+        return Map.of("message", "Pesanan dibatalkan, stok dikembalikan");
+    }
+
+    private Order findOrder(Long id) {
+        return orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pesanan tidak ditemukan"));
     }
 
     private Product findProduct(Long id) {
