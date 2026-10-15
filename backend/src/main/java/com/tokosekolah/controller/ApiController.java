@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,7 +42,10 @@ public class ApiController {
             Path filePath = Paths.get(uploadDir + cleanFileName);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            String fileUrl = "http://localhost:8080/uploads/" + cleanFileName;
+            String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                    .path("/uploads/")
+                    .path(cleanFileName)
+                    .toUriString();
             return ResponseEntity.ok(Map.of("url", fileUrl));
         } catch (IOException e) {
             return ResponseEntity.internalServerError().body(Map.of("error", "Gagal mengupload gambar"));

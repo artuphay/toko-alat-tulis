@@ -1,26 +1,30 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* Identitas visual Kima — Little Accessories, Big Happiness */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-kima-pink: #f78fb8;
+  --color-kima-yellow: #ffd66e;
+  --color-kima-lavender: #c8a8f5;
+  --color-kima-mint: #86dcc5;
+  --color-kima-blue: #84c8f5;
+  --color-kima-teal: #7cc8cc;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Varian gelap untuk teks & tombol agar kontras tetap terbaca */
+  --color-kima-pink-deep: #d94f8a;
+  --color-kima-blue-deep: #2f86c4;
+  --color-kima-mint-deep: #2a9d7f;
+  --color-kima-lavender-deep: #8a5fd6;
+  --color-kima-yellow-deep: #b8860b;
+
+  --color-kima-cream: #fffaf6;
+  --color-kima-ink: #3d3551;
+
+  --font-sans: var(--font-nunito);
+  --font-display: var(--font-fredoka);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-kima-cream);
+  color: var(--color-kima-ink);
+  font-family: var(--font-nunito), system-ui, sans-serif;
 }

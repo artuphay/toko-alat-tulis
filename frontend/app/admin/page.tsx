@@ -4,6 +4,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Product, Order } from '../../types';
 import Link from 'next/link';
+import KimaLogo from '../../components/KimaLogo';
+import { categoryStyle, KIMA_CATEGORIES } from '../../lib/kima';
 import { ShoppingBag, Plus, Trash2, Edit3, Truck, ArrowLeft, Upload, Link as LinkIcon, Image as ImageIcon } from 'lucide-react';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 export default function AdminPage() {
@@ -32,7 +34,7 @@ export default function AdminPage() {
   // Form State
   const [formData, setFormData] = useState({
     name: '',
-    category: 'Alat Tulis',
+    category: 'Aksesori Rambut',
     description: '',
     price: '',
     stock: '',
@@ -42,9 +44,9 @@ export default function AdminPage() {
   const fetchData = useCallback(async () => {
     try {
       const [resProd, resOrd, resSum] = await Promise.all([
-        fetch('http://localhost:8080/api/products'),
-        fetch('http://localhost:8080/api/admin/orders/ready-to-ship'),
-        fetch('http://localhost:8080/api/admin/orders/summary'),
+        fetch(`${API_BASE_URL}/api/products`),
+        fetch(`${API_BASE_URL}/api/admin/orders/ready-to-ship`),
+        fetch(`${API_BASE_URL}/api/admin/orders/summary`),
       ]);
 
       if (resProd.ok && resOrd.ok && resSum.ok) {
@@ -77,7 +79,7 @@ export default function AdminPage() {
     setEditingProduct(null);
     setFormData({
       name: '',
-      category: 'Alat Tulis',
+      category: 'Aksesori Rambut',
       description: '',
       price: '',
       stock: '',
@@ -97,7 +99,7 @@ export default function AdminPage() {
       stock: p.stock.toString(),
       imageUrl: p.imageUrl || '',
     });
-    setImageUploadMode(p.imageUrl?.startsWith('http://localhost:8080') ? 'file' : 'url');
+    setImageUploadMode(p.imageUrl?.includes('/uploads/') ? 'file' : 'url');
     setIsModalOpen(true);
   };
 
@@ -111,7 +113,7 @@ export default function AdminPage() {
     uploadFormData.append('file', file);
 
     try {
-      const res = await fetch('http://localhost:8080/api/admin/upload', {
+      const res = await fetch(`${API_BASE_URL}/api/admin/upload`, {
         method: 'POST',
         body: uploadFormData,
       });
@@ -138,8 +140,8 @@ export default function AdminPage() {
     };
 
     const url = editingProduct
-      ? `http://localhost:8080/api/admin/products/${editingProduct.id}`
-      : 'http://localhost:8080/api/admin/products';
+      ? `${API_BASE_URL}/api/admin/products/${editingProduct.id}`
+      : `${API_BASE_URL}/api/admin/products`;
 
     const method = editingProduct ? 'PUT' : 'POST';
 
@@ -155,7 +157,7 @@ export default function AdminPage() {
 
   const handleDeleteProduct = async (id: number) => {
     if (!confirm('Apakah Anda yakin ingin menghapus produk ini?')) return;
-    await fetch(`http://localhost:8080/api/admin/products/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE_URL}/api/admin/products/${id}`, { method: 'DELETE' });
     fetchData();
   };
 
@@ -163,7 +165,7 @@ export default function AdminPage() {
     const resi = trackingInputs[id];
     if (!resi) return alert('Silakan isi nomor resi ekspedisi!');
 
-    await fetch(`http://localhost:8080/api/admin/orders/${id}/ship`, {
+    await fetch(`${API_BASE_URL}/api/admin/orders/${id}/ship`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ trackingNumber: resi }),
@@ -174,20 +176,21 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans text-slate-800">
+    <div className="min-h-screen bg-kima-cream p-6 md:p-10 font-sans text-kima-ink">
       <div className="max-w-6xl mx-auto space-y-6">
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-              ⚙️ Panel Pengelola Toko
-            </h1>
-            <p className="text-xs text-slate-500">Kelola stok barang alat tulis & monitor pesanan siap kirim.</p>
+          <div className="flex items-center gap-5">
+            <KimaLogo showTagline={false} />
+            <div className="pl-5 border-l-2 border-kima-pink/30">
+              <h1 className="font-display text-2xl font-bold text-kima-ink">Panel Pengelola Toko</h1>
+              <p className="text-xs text-slate-500">Kelola stok aksesori & monitor pesanan siap kirim.</p>
+            </div>
           </div>
           <Link
             href="/"
-            className="flex items-center gap-2 text-xs bg-white border border-slate-200 px-4 py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition shadow-sm"
+            className="flex items-center gap-2 text-xs bg-white border border-slate-200 px-4 py-2.5 rounded-xl font-bold text-slate-600 hover:bg-kima-pink/10 transition shadow-sm"
           >
             <ArrowLeft size={16} /> Ke Toko Pembeli
           </Link>
@@ -196,27 +199,27 @@ export default function AdminPage() {
         {/* Notifikasi Backend Status */}
         {!isBackendConnected && (
           <div className="bg-amber-50 border border-amber-300 text-amber-800 p-3.5 rounded-2xl text-xs flex items-center gap-2">
-            ⚠️ <strong>Menghubungkan ke Backend di Port 8080...</strong> Pastikan Spring Boot di VS Code sudah dalam kondisi <code>Run</code>.
+            ⚠️ <strong>Belum terhubung ke server backend.</strong> Pastikan backend Spring Boot sedang berjalan dan <code>NEXT_PUBLIC_API_URL</code> sudah benar.
           </div>
         )}
 
         {/* Ringkasan Statistik */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-pink-50 border border-pink-200 p-4 rounded-2xl">
-            <span className="text-[10px] font-bold text-pink-600 uppercase">Total Produk</span>
-            <div className="text-2xl font-black text-pink-800 mt-1">{summary.totalProducts} Item</div>
+          <div className="bg-kima-pink/20 border-2 border-kima-pink/40 p-4 rounded-2xl">
+            <span className="text-[10px] font-bold text-kima-pink-deep uppercase">Total Produk</span>
+            <div className="text-2xl font-black text-kima-ink mt-1 font-display">{summary.totalProducts} Item</div>
           </div>
-          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl">
-            <span className="text-[10px] font-bold text-emerald-600 uppercase">Siap Dikirim (Lunas)</span>
-            <div className="text-2xl font-black text-emerald-800 mt-1">{summary.readyToShipOrders} Pesanan</div>
+          <div className="bg-kima-mint/20 border-2 border-kima-mint/50 p-4 rounded-2xl">
+            <span className="text-[10px] font-bold text-kima-mint-deep uppercase">Siap Dikirim (Lunas)</span>
+            <div className="text-2xl font-black text-kima-ink mt-1 font-display">{summary.readyToShipOrders} Pesanan</div>
           </div>
-          <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl">
-            <span className="text-[10px] font-bold text-amber-600 uppercase">Menunggu QRIS</span>
-            <div className="text-2xl font-black text-amber-800 mt-1">{summary.pendingOrders} Pesanan</div>
+          <div className="bg-kima-yellow/25 border-2 border-kima-yellow/60 p-4 rounded-2xl">
+            <span className="text-[10px] font-bold text-kima-yellow-deep uppercase">Menunggu QRIS</span>
+            <div className="text-2xl font-black text-kima-ink mt-1 font-display">{summary.pendingOrders} Pesanan</div>
           </div>
-          <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl">
-            <span className="text-[10px] font-bold text-blue-600 uppercase">Terkirim</span>
-            <div className="text-2xl font-black text-blue-800 mt-1">{summary.shippedOrders} Pesanan</div>
+          <div className="bg-kima-blue/20 border-2 border-kima-blue/50 p-4 rounded-2xl">
+            <span className="text-[10px] font-bold text-kima-blue-deep uppercase">Terkirim</span>
+            <div className="text-2xl font-black text-kima-ink mt-1 font-display">{summary.shippedOrders} Pesanan</div>
           </div>
         </div>
 
@@ -226,7 +229,7 @@ export default function AdminPage() {
             onClick={() => setActiveTab('products')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition ${
               activeTab === 'products'
-                ? 'bg-pink-600 text-white shadow-md shadow-pink-200'
+                ? 'bg-kima-pink-deep text-white shadow-md shadow-kima-pink/40'
                 : 'bg-white text-slate-600 hover:bg-slate-100 border'
             }`}
           >
@@ -236,7 +239,7 @@ export default function AdminPage() {
             onClick={() => setActiveTab('orders')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition ${
               activeTab === 'orders'
-                ? 'bg-pink-600 text-white shadow-md shadow-pink-200'
+                ? 'bg-kima-pink-deep text-white shadow-md shadow-kima-pink/40'
                 : 'bg-white text-slate-600 hover:bg-slate-100 border'
             }`}
           >
@@ -254,7 +257,7 @@ export default function AdminPage() {
               </div>
               <button
                 onClick={handleOpenAddModal}
-                className="flex items-center gap-1.5 bg-pink-500 hover:bg-pink-600 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition"
+                className="flex items-center gap-1.5 bg-kima-pink-deep hover:brightness-95 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition"
               >
                 <Plus size={16} /> Tambah Produk Baru
               </button>
@@ -290,7 +293,7 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td className="p-3.5">
-                        <span className="bg-pink-100 text-pink-700 px-2.5 py-1 rounded-full font-bold text-[10px]">
+                        <span className={`px-2.5 py-1 rounded-full font-bold text-[10px] ${categoryStyle(p.category)}`}>
                           {p.category}
                         </span>
                       </td>
@@ -301,9 +304,9 @@ export default function AdminPage() {
                         <span
                           className={`px-2.5 py-1 rounded-full font-bold text-[10px] ${
                             p.stock > 10
-                              ? 'bg-emerald-100 text-emerald-700'
+                              ? 'bg-kima-mint/30 text-kima-mint-deep'
                               : p.stock > 0
-                              ? 'bg-amber-100 text-amber-700'
+                              ? 'bg-kima-yellow/40 text-kima-yellow-deep'
                               : 'bg-rose-100 text-rose-700'
                           }`}
                         >
@@ -352,7 +355,7 @@ export default function AdminPage() {
                 {orders.map((o) => (
                   <div key={o.id} className="p-6 flex flex-col md:flex-row gap-6">
                     <div className="md:w-1/3 space-y-1">
-                      <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      <span className="bg-kima-mint/30 text-kima-mint-deep text-[10px] font-bold px-2 py-0.5 rounded-full">
                         LUNAS (QRIS)
                       </span>
                       <h3 className="font-bold text-slate-800 text-base">{o.recipientName}</h3>
@@ -372,7 +375,7 @@ export default function AdminPage() {
                           </li>
                         ))}
                       </ul>
-                      <div className="mt-2 text-right font-black text-sm text-pink-600">
+                      <div className="mt-2 text-right font-black text-sm text-kima-pink-deep">
                         Total: Rp {o.totalAmount.toLocaleString('id-ID')}
                       </div>
                     </div>
@@ -385,7 +388,7 @@ export default function AdminPage() {
                         <input
                           type="text"
                           placeholder="Contoh: JNE12345678"
-                          className="w-full p-2 text-xs border rounded-lg outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                          className="w-full p-2 text-xs border rounded-lg outline-none focus:ring-2 focus:ring-kima-blue bg-white"
                           value={trackingInputs[o.id] || ''}
                           onChange={(e) =>
                             setTrackingInputs({ ...trackingInputs, [o.id]: e.target.value })
@@ -394,7 +397,7 @@ export default function AdminPage() {
                       </div>
                       <button
                         onClick={() => handleShip(o.id)}
-                        className="mt-3 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow"
+                        className="mt-3 w-full py-2 bg-kima-blue-deep hover:brightness-95 text-white rounded-lg text-xs font-bold transition shadow"
                       >
                         Konfirmasi Kirim 🚚
                       </button>
@@ -409,11 +412,11 @@ export default function AdminPage() {
         {/* MODAL INPUT / EDIT PRODUK DENGAN FITUR UPLOAD GAMBAR */}
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-4 border-pink-100 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-xl font-bold text-slate-800 mb-1">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-4 border-kima-lavender/40 max-h-[90vh] overflow-y-auto">
+              <h2 className="font-display text-xl font-bold text-kima-ink mb-1">
                 {editingProduct ? '✏️ Edit Produk' : '✨ Tambah Produk Baru'}
               </h2>
-              <p className="text-xs text-slate-400 mb-4">Lengkapi rincian alat tulis atau aksesori sekolah.</p>
+              <p className="text-xs text-slate-400 mb-4">Lengkapi rincian aksesori Kima.</p>
 
               <form onSubmit={handleFormSubmit} className="space-y-3">
                 <div>
@@ -421,8 +424,8 @@ export default function AdminPage() {
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: Kotak Pensil Unicorn 3D"
-                    className="w-full mt-1 p-2.5 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-pink-400"
+                    placeholder="Contoh: Jepit Rambut Pita Pelangi"
+                    className="w-full mt-1 p-2.5 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-kima-pink"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
@@ -431,14 +434,13 @@ export default function AdminPage() {
                 <div>
                   <label className="text-xs font-semibold text-slate-700">Kategori</label>
                   <select
-                    className="w-full mt-1 p-2.5 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-pink-400 bg-white"
+                    className="w-full mt-1 p-2.5 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-kima-pink bg-white"
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   >
-                    <option value="Alat Tulis">Alat Tulis</option>
-                    <option value="Aksesori">Aksesori</option>
-                    <option value="Tas & Kotak Pensil">Tas & Kotak Pensil</option>
-                    <option value="Buku & Kertas">Buku & Kertas</option>
+                    {KIMA_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -449,7 +451,7 @@ export default function AdminPage() {
                       type="number"
                       required
                       placeholder="35000"
-                      className="w-full mt-1 p-2.5 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-pink-400"
+                      className="w-full mt-1 p-2.5 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-kima-pink"
                       value={formData.price}
                       onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     />
@@ -460,7 +462,7 @@ export default function AdminPage() {
                       type="number"
                       required
                       placeholder="50"
-                      className="w-full mt-1 p-2.5 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-pink-400"
+                      className="w-full mt-1 p-2.5 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-kima-pink"
                       value={formData.stock}
                       onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                     />
@@ -476,7 +478,7 @@ export default function AdminPage() {
                         type="button"
                         onClick={() => setImageUploadMode('file')}
                         className={`px-2 py-1 rounded-md transition flex items-center gap-1 ${
-                          imageUploadMode === 'file' ? 'bg-white shadow text-pink-600' : 'text-slate-500'
+                          imageUploadMode === 'file' ? 'bg-white shadow text-kima-pink-deep' : 'text-slate-500'
                         }`}
                       >
                         <Upload size={12} /> Upload File
@@ -485,7 +487,7 @@ export default function AdminPage() {
                         type="button"
                         onClick={() => setImageUploadMode('url')}
                         className={`px-2 py-1 rounded-md transition flex items-center gap-1 ${
-                          imageUploadMode === 'url' ? 'bg-white shadow text-pink-600' : 'text-slate-500'
+                          imageUploadMode === 'url' ? 'bg-white shadow text-kima-pink-deep' : 'text-slate-500'
                         }`}
                       >
                         <LinkIcon size={12} /> Link URL
@@ -494,7 +496,7 @@ export default function AdminPage() {
                   </div>
 
                   {imageUploadMode === 'file' ? (
-                    <div className="border-2 border-dashed border-pink-200 rounded-2xl p-4 text-center hover:bg-pink-50/50 transition relative">
+                    <div className="border-2 border-dashed border-kima-lavender rounded-2xl p-4 text-center hover:bg-kima-lavender/10 transition relative">
                       <input
                         type="file"
                         accept="image/*"
@@ -502,7 +504,7 @@ export default function AdminPage() {
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                       />
                       <div className="space-y-1">
-                        <Upload className="mx-auto text-pink-500" size={24} />
+                        <Upload className="mx-auto text-kima-pink-deep" size={24} />
                         <div className="text-xs font-bold text-slate-700">
                           {uploadingImage ? 'Mengupload ke Server...' : 'Klik untuk Pilih Foto dari Laptop'}
                         </div>
@@ -513,7 +515,7 @@ export default function AdminPage() {
                     <input
                       type="url"
                       placeholder="https://images.unsplash.com/..."
-                      className="w-full p-2.5 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-pink-400"
+                      className="w-full p-2.5 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-kima-pink"
                       value={formData.imageUrl}
                       onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
                     />
@@ -528,7 +530,7 @@ export default function AdminPage() {
                         className="w-12 h-12 object-cover rounded-lg border"
                       />
                       <div className="overflow-hidden">
-                        <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
+                        <span className="text-[10px] font-bold text-kima-mint-deep flex items-center gap-1">
                           ✓ Foto Siap Digunakan
                         </span>
                         <p className="text-[10px] text-slate-400 truncate max-w-[240px]">{formData.imageUrl}</p>
@@ -542,7 +544,7 @@ export default function AdminPage() {
                   <textarea
                     rows={2}
                     placeholder="Contoh: Bahan tebal, warna tahan luntur..."
-                    className="w-full mt-1 p-2.5 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-pink-400"
+                    className="w-full mt-1 p-2.5 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-kima-pink"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
@@ -559,7 +561,7 @@ export default function AdminPage() {
                   <button
                     type="submit"
                     disabled={uploadingImage}
-                    className="w-1/2 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-xl text-xs font-bold shadow-md shadow-pink-200"
+                    className="w-1/2 py-2.5 bg-kima-pink-deep hover:brightness-95 text-white rounded-xl text-xs font-bold shadow-md shadow-kima-pink/40"
                   >
                     {uploadingImage ? 'Mengupload...' : 'Simpan Produk 💾'}
                   </button>
