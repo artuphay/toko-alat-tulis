@@ -8,7 +8,8 @@ import KimaLogo from '../../components/KimaLogo';
 import AdminLogin from '../../components/AdminLogin';
 import { categoryStyle, KIMA_CATEGORIES } from '../../lib/kima';
 import { apiFetch, ApiError, FALLBACK_IMAGE, formatRupiah } from '../../lib/api';
-import { ShoppingBag, Plus, Trash2, Edit3, Truck, ArrowLeft, Upload, Link as LinkIcon, LogOut, PackageCheck } from 'lucide-react';
+import { paidMessage, shippedMessage, whatsAppLink } from '../../lib/whatsapp';
+import { ShoppingBag, Plus, Trash2, Edit3, Truck, ArrowLeft, Upload, Link as LinkIcon, LogOut, PackageCheck, MessageCircle } from 'lucide-react';
 
 const TOKEN_KEY = 'kima-admin-token';
 
@@ -265,20 +266,29 @@ export default function AdminPage() {
     }
   };
 
-  const handleShip = async (id: number) => {
-    const resi = trackingInputs[id]?.trim();
+  const handleShip = async (o: Order) => {
+    const resi = trackingInputs[o.id]?.trim();
     if (!resi) {
       showToast('error', 'Silakan isi nomor resi ekspedisi!');
       return;
     }
+    // Buka tab WhatsApp saat tombol diklik (agar tidak diblokir browser), isi alamatnya setelah resi tersimpan
+    const waWindow = window.open('', '_blank');
     try {
-      await adminApi(`/api/admin/orders/${id}/ship`, {
+      await adminApi(`/api/admin/orders/${o.id}/ship`, {
         method: 'PUT',
         body: JSON.stringify({ trackingNumber: resi }),
       });
-      showToast('ok', 'Pesanan ditandai sudah dikirim 🚚');
+      const waUrl = whatsAppLink(o.phoneNumber, shippedMessage(o, resi));
+      if (waWindow) {
+        waWindow.location.href = waUrl;
+        showToast('ok', 'Resi tersimpan. Tekan Kirim di WhatsApp 📲');
+      } else {
+        showToast('ok', 'Resi tersimpan. Kirim resi lewat tombol WhatsApp di tab Sudah Dikirim.');
+      }
       fetchData();
     } catch (err) {
+      waWindow?.close();
       showToast('error', err instanceof ApiError ? err.message : 'Gagal memperbarui pesanan');
     }
   };
@@ -519,7 +529,15 @@ export default function AdminPage() {
                       )}
                       <p className="text-[11px] font-mono text-slate-400">{o.orderCode}</p>
                       <h3 className="font-bold text-slate-800 text-base">{o.recipientName}</h3>
-                      <p className="text-xs text-slate-500 font-mono">📱 {o.phoneNumber}</p>
+                      <a
+                        href={whatsAppLink(o.phoneNumber, `Halo ${o.recipientName}, ini dari Kima Little Collection 🎀 terkait pesanan ${o.orderCode}.`)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-kima-mint-deep font-mono hover:underline"
+                        title="Chat pembeli via WhatsApp"
+                      >
+                        <MessageCircle size={13} /> {o.phoneNumber}
+                      </a>
                       <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200 mt-2">
                         📍 {o.shippingAddress}, {o.city} ({o.postalCode})
                       </p>
@@ -569,6 +587,14 @@ export default function AdminPage() {
                             <PackageCheck size={14} /> Nomor Resi
                           </span>
                           <p className="font-mono text-sm font-bold">{o.trackingNumber}</p>
+                          <a
+                            href={whatsAppLink(o.phoneNumber, shippedMessage(o, o.trackingNumber ?? ''))}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 flex items-center justify-center gap-1.5 w-full py-2 bg-[#25D366] hover:brightness-95 text-white rounded-lg text-xs font-bold transition shadow"
+                          >
+                            <MessageCircle size={14} /> Kirim Resi via WhatsApp
+                          </a>
                         </div>
                       ) : (
                         <>
@@ -583,11 +609,19 @@ export default function AdminPage() {
                             />
                           </div>
                           <button
-                            onClick={() => handleShip(o.id)}
+                            onClick={() => handleShip(o)}
                             className="mt-3 w-full py-2 bg-kima-blue-deep hover:brightness-95 text-white rounded-lg text-xs font-bold transition shadow"
                           >
-                            Konfirmasi Kirim 🚚
+                            Konfirmasi Kirim & Kabari via WA 🚚
                           </button>
+                          <a
+                            href={whatsAppLink(o.phoneNumber, paidMessage(o))}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 flex items-center justify-center gap-1 text-[11px] font-bold text-kima-mint-deep hover:underline"
+                          >
+                            <MessageCircle size={12} /> Kabari pembayaran diterima
+                          </a>
                           <button
                             onClick={() => handleCancel(o)}
                             className="mt-2 w-full text-[11px] text-rose-500 hover:underline"

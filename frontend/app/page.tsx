@@ -3,7 +3,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Product, Order } from '../types';
-import { ShoppingCart, Package, CheckCircle2, Minus, Plus, Trash2, X, ArrowLeft, RefreshCw, Copy, Check, Download } from 'lucide-react';
+import { ShoppingCart, Package, CheckCircle2, Minus, Plus, Trash2, X, ArrowLeft, RefreshCw, Copy, Check, Download, Truck } from 'lucide-react';
 import Link from 'next/link';
 import KimaLogo from '../components/KimaLogo';
 import { categoryStyle } from '../lib/kima';
@@ -25,6 +25,19 @@ const EMPTY_FORM = {
 
 const inputClass =
   'w-full mt-1 p-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-kima-pink';
+
+// Pemberitahuan ongkir: harga di toko belum termasuk ongkir, ongkir dibayar ke kurir (COD)
+function ShippingNote() {
+  return (
+    <div className="flex gap-2 text-left text-xs text-kima-ink bg-kima-blue/15 border border-kima-blue/40 rounded-2xl p-3">
+      <Truck size={16} className="shrink-0 text-kima-blue-deep mt-0.5" />
+      <p>
+        <b>Harga belum termasuk ongkir.</b> Paket dikirim dengan fitur <b>COD ongkir</b>: ongkos kirim dibayar langsung ke
+        kurir saat paket diterima, sesuai tarif ekspedisi.
+      </p>
+    </div>
+  );
+}
 
 function readSavedCart(): Cart {
   try {
@@ -399,7 +412,10 @@ export default function Storefront() {
                 )}
 
                 <div className="bg-kima-yellow/25 p-3 rounded-2xl flex justify-between items-center mt-4">
-                  <span className="text-xs font-bold text-slate-700">Total ({totalCartItems} item)</span>
+                  <span className="text-xs font-bold text-slate-700">
+                    Total ({totalCartItems} item)
+                    <span className="block text-[10px] font-semibold text-slate-500">belum termasuk ongkir</span>
+                  </span>
                   <span className="text-lg font-black text-kima-pink-deep">{formatRupiah(totalPrice)}</span>
                 </div>
                 <button
@@ -500,9 +516,11 @@ export default function Storefront() {
                   </div>
 
                   <div className="bg-kima-yellow/25 p-3 rounded-2xl flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-700">Total Pembayaran:</span>
+                    <span className="text-xs font-bold text-slate-700">Total Harga Barang:</span>
                     <span className="text-lg font-black text-kima-pink-deep">{formatRupiah(totalPrice)}</span>
                   </div>
+
+                  <ShippingNote />
 
                   {error && <p className="text-sm text-rose-600 bg-rose-50 p-3 rounded-xl">{error}</p>}
 
@@ -537,7 +555,10 @@ export default function Storefront() {
                       {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? 'Disalin' : 'Salin'}
                     </button>
                   </div>
+                  <p className="text-[10px] text-slate-500 mt-1">Harga barang saja, belum termasuk ongkir</p>
                 </div>
+
+                <ShippingNote />
 
                 <div className="bg-white border-2 border-kima-lavender/50 rounded-2xl p-3">
                   <p className="text-xs font-bold text-kima-ink">{QRIS_MERCHANT_NAME}</p>
@@ -607,9 +628,10 @@ export default function Storefront() {
                 <h3 className="font-display text-xl font-bold text-kima-ink">Terima kasih! 🎉</h3>
                 <p className="text-xs text-slate-500">
                   Pembayaran untuk pesanan <span className="font-mono font-bold">{createdOrder.orderCode}</span> sedang kami cek.
-                  Pesanan segera dikemas setelah pembayaran terkonfirmasi, dan kami akan mengabari lewat WhatsApp saat paket dikirim.
-                  Simpan kode pesanan ini, ya.
+                  Pesanan segera dikemas setelah pembayaran terkonfirmasi, dan kami akan mengabari nomor resi lewat WhatsApp saat
+                  paket dikirim. Simpan kode pesanan ini, ya.
                 </p>
+                <ShippingNote />
                 <button onClick={finishOrder} className="w-full py-2.5 bg-kima-pink-deep text-white rounded-xl font-bold text-sm mt-4">
                   Kembali Belanja
                 </button>
