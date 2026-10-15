@@ -16,6 +16,8 @@ export interface OrderItem {
   subtotal: number;
 }
 
+export type OrderStatus = 'PENDING_PAYMENT' | 'PAID_READY_TO_SHIP' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED';
+
 export interface Order {
   id: number;
   orderCode: string;
@@ -26,8 +28,17 @@ export interface Order {
   postalCode: string;
   notes?: string;
   totalAmount: number;
-  status: string;
+  status: OrderStatus;
   qrisUrl?: string;
   trackingNumber?: string;
+  paidAt?: string;
+  createdAt?: string;
   items: OrderItem[];
+}
+
+export interface OrderSummary {
+  readyToShipOrders: number;
+  pendingOrders: number;
+  shippedOrders: number;
+  totalProducts: number;
 }

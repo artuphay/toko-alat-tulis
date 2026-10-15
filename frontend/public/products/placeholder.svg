@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#FFF4D6"/>
+  <path d="M200 140 C160 95, 115 110, 122 145 C115 180, 160 190, 200 140Z" fill="#F78FB8" opacity=".55"/>
+  <path d="M200 140 C240 95, 285 110, 278 145 C285 180, 240 190, 200 140Z" fill="#F78FB8" opacity=".55"/>
+  <circle cx="200" cy="140" r="15" fill="#F78FB8"/>
+  <text x="200" y="230" font-family="Arial, sans-serif" font-size="18" fill="#3D3551" opacity=".5" text-anchor="middle">Foto segera hadir</text>
+</svg>

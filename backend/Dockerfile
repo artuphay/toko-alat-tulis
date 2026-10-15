@@ -10,8 +10,6 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
-# Buat folder uploads untuk file foto
-RUN mkdir -p uploads
 
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
